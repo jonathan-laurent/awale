@@ -3,156 +3,226 @@
 <body style="height:100%;">
     <script type="text/JavaScript" src="awale.js"></script>
     <div style="height: 100%;display: flex;align-items: center;justify-content: center;">
-        <svg width="1000" height="200">
-            <script type="text/JavaScript">
-                <![CDATA[
+        <script type="text/JavaScript">
+            var timeouts = [];
+            var ai_depth = { g:0, w:0, e:-1 };
 
-                    awale_AI.restart();
+            function resize_circle(id, px_offset){
+                var elem = document.getElementById(id);
+                elem.setAttributeNS(null,"r",parseInt(elem.getAttributeNS(null,"r"))+px_offset);
+            }
 
-                    function resize_circle(id, px_offset){
-                        var elem = document.getElementById(id);
-                        elem.setAttributeNS(null,"r",parseInt(elem.getAttributeNS(null,"r"))+px_offset);
-                    }
-					
-					function set_score(id, score){
-                        var elem = document.getElementById("t"+id);
-                        elem.textContent = score.toString();
-                    }
-					
-					function get_score(id){
-                        var elem = document.getElementById("t"+id);
-                        return parseInt(elem.textContent);
-                    }
-        
-                    function animate(id, delay, new_score){
-                        setTimeout(function(){ resize_circle(id,10); set_score(id,new_score); }, delay*100);
-                        setTimeout(function(){ resize_circle(id,-10); }, delay*100+100);
-                    }
+            function resize_circle_abs(id, px){
+                var elem = document.getElementById(id);
+                elem.setAttributeNS(null,"r",px);
+            }
 
-                    function inv_team(team){
-                        if (team == 'w')
-                            return 'g';
-                        else if (team == 'g')
-                            return 'w';
-                        return 'e';
-                    }
-        
-                    function cur_team(){
-                        var color = document.getElementById("team").getAttributeNS(null,"fill");
-                        if (color == "white")
-                            return 'w';
-                        else if (color == "grey")
-                            return 'g';
-                        return 'e';
-                    }
-        
-                    function set_team(team){
-                        if (team == 'w')
-                            document.getElementById("team").setAttributeNS(null,"fill","white");
-                        else if (team == 'g')
-                            document.getElementById("team").setAttributeNS(null,"fill","grey");
-                        else
-                            document.getElementById("team").setAttributeNS(null,"fill","black");
-                    }
-        
-                    function next(id){
-                        var team = id[0];
-                        var nb = parseInt(id[1])+1;
-                        if (nb>7) {
-                            nb = 1;
-                            team = inv_team(team);
+            function reset_sizes(){
+                for (var i = 1; i <= 6; i++){
+                    resize_circle_abs("w"+i.toString(), 25);
+                    resize_circle_abs("g"+i.toString(), 25);
+                }
+                resize_circle_abs("w7", 75);
+                resize_circle_abs("g7", 75);
+            }
+
+            function set_score(id, score){
+                var elem = document.getElementById("t"+id);
+                elem.textContent = score.toString();
+            }
+
+            function get_score(id){
+                var elem = document.getElementById("t"+id);
+                return parseInt(elem.textContent);
+            }
+
+            function animate(id, delay, new_score){
+                timeouts.push(setTimeout(function(){ resize_circle(id,10); set_score(id,new_score); }, delay*100));
+                timeouts.push(setTimeout(function(){ resize_circle(id,-10); }, delay*100+100));
+            }
+
+            function inv_team(team){
+                if (team == 'w')
+                    return 'g';
+                else if (team == 'g')
+                    return 'w';
+                return team;
+            }
+
+            function cur_team(){
+                var color = document.getElementById("team").getAttributeNS(null,"fill");
+                if (color == "white")
+                    return 'w';
+                else if (color == "grey")
+                    return 'g';
+                return 'e';
+            }
+
+            function set_team(team){
+                if (team == 'w')
+                    document.getElementById("team").setAttributeNS(null,"fill","white");
+                else if (team == 'g')
+                    document.getElementById("team").setAttributeNS(null,"fill","grey");
+                else
+                    document.getElementById("team").setAttributeNS(null,"fill","black");
+            }
+
+            function next(id){
+                var team = id[0];
+                var nb = parseInt(id[1])+1;
+                if (nb>7) {
+                    nb = 1;
+                    team = inv_team(team);
+                }
+                var res = team.toString()+nb.toString();
+                var team = cur_team();
+                if ((team == 'w' && res == "g7") || (team == 'g' && res == "w7"))
+                    res = next(res);
+                return res;
+            }
+
+            function clear_pending(){
+                for (var i=0; i<timeouts.length; i++) {
+                    clearTimeout(timeouts[i]);
+                }
+                timeouts = [];
+                reset_sizes();
+            }
+
+            function ai_play(){
+                var team = cur_team();
+                var d = ai_depth[team];
+                if (d > 0){
+                    timeouts.push(setTimeout(function(){
+                        var mv = awale_AI.ia(d);
+                        move(team.toString()+(6-mv).toString());
+                    },100));
+                }
+            }
+
+            function move(id){
+                var team = cur_team();
+                if (id[0] != team || id[1] == '7')
+                    return false;
+                var nb = get_score(id);
+                if (nb == 0)
+                    return false;
+
+                clear_pending();
+                resize_circle(id,10);
+                set_score(id,0);
+                var current = id;
+                for (var i = 0; i < nb; i++){
+                    current = next(current);
+                    animate(current,i+1,get_score(current)+1);
+                }
+                set_team('e');
+                
+                timeouts.push(setTimeout(
+                    function(){
+                        // Checking end condition
+                        var ended = true;
+                        for (var i = 1; i <= 6; i++){
+                            if (get_score(team.toString()+i.toString()) != 0)
+                                ended = false;
                         }
-                        var res = team.toString()+nb.toString();
-                        var team = cur_team();
-                        if ((team == 'w' && res == "g7") || (team == 'g' && res == "w7"))
-                            res = next(res);
-                        return res;
-                    }
-        
-                    function move(id){
-                        var team = cur_team();
-                        if (id[0] != team || id[1] == '7')
-                            return false;
-                        var nb = get_score(id);
-                        if (nb == 0)
-                            return false;
-                        set_score(id,0);
-                        var current = id;
-                        for (var i = 0; i < nb; i++){
-                            current = next(current);
-                            animate(current,i,get_score(current)+1);
+                        
+                        if (ended) {
+                            var iteam = inv_team(team);
+                            var score = 0;
+                            for (var i = 1; i <= 6; i++){
+                                score += get_score(iteam.toString()+i.toString());
+                                set_score(iteam.toString()+i.toString(), 0);
+                            }
+                            set_score(team.toString()+"7", get_score(team.toString()+"7")+score);
                         }
-						set_team('e');
-						
-						setTimeout(
-							function(){
-								// Checking end condition
-								var ended = true;
-								for (var i = 1; i <= 6; i++){
-									if (get_score(team.toString()+i.toString()) != 0)
-										ended = false;
-								}
-								
-								if (ended) {
-									var iteam = inv_team(team);
-									var score = 0;
-									for (var i = 1; i <= 6; i++){
-										score += get_score(iteam.toString()+i.toString());
-										set_score(iteam.toString()+i.toString(), 0);
-									}
-									set_score(team.toString()+"7", get_score(team.toString()+"7")+score);
-								}
-								else {
-									if (current[1] != '7')
-										set_team(inv_team(team));
-									else
-										set_team(team);
-								}
-							}, nb*100)
-						return true;
-                    }
-        
-                    function onClick(event){
-                        var id = event.target.getAttributeNS(null,"id");
-                        if (id.length == 3)
-                            id = id[1].toString() + id[2].toString();
-                        move(id);
-                    }
-                ]]>
-            </script>
-        
-            <circle onclick="onClick(event)" id="g6" cx="250" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg6" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="250" y="50">3</text>
-            <circle onclick="onClick(event)" id="g5" cx="350" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg5" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="350" y="50">3</text>
-            <circle onclick="onClick(event)" id="g4" cx="450" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg4" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="450" y="50">3</text>
-            <circle onclick="onClick(event)" id="g3" cx="550" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg3" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="550" y="50">3</text>
-            <circle onclick="onClick(event)" id="g2" cx="650" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg2" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="650" y="50">3</text>
-            <circle onclick="onClick(event)" id="g1" cx="750" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
-            <text onclick="onClick(event)" id="tg1" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="750" y="50">3</text>
-            <circle id="g7" cx="100" cy="100" r="75" stroke="black" stroke-width="3" fill="grey" />
-            <text id="tg7" fill="white" text-anchor="middle" dy="15" font-size="40" font-family="Verdana" x="100" y="100">0</text>
-        
-            <circle id="w7" cx="900" cy="100" r="75" stroke="black" stroke-width="3" fill="white" />
-            <text id="tw7" fill="black" text-anchor="middle" dy="15" font-size="40" font-family="Verdana" x="900" y="100">0</text>
-            <circle onclick="onClick(event)" id="w1" cx="250" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw1" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="250" y="150">3</text>
-            <circle onclick="onClick(event)" id="w2" cx="350" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw2" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="350" y="150">3</text>
-            <circle onclick="onClick(event)" id="w3" cx="450" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw3" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="450" y="150">3</text>
-            <circle onclick="onClick(event)" id="w4" cx="550" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw4" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="550" y="150">3</text>
-            <circle onclick="onClick(event)" id="w5" cx="650" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw5" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="650" y="150">3</text>
-            <circle onclick="onClick(event)" id="w6" cx="750" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
-            <text onclick="onClick(event)" id="tw6" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="750" y="150">3</text>
-        
-            <rect id="team" x="495" y="95" fill="grey" stroke="black" stroke-width="1" width="10" height="10" />
-        </svg>
+                        else {
+                            if (current[1] != '7')
+                                set_team(inv_team(team));
+                            else
+                                set_team(team);
+                        }
+                        // Play turn on the OCaml game
+                        awale_AI.play(6-parseInt(id[1]));
+                        // New turn!
+                        timeouts = [];
+                        ai_play();
+                    }, (nb+1)*100));
+                return true;
+            }
+
+            function new_game() {
+                clear_pending();
+                
+                var gd = parseInt(document.getElementById("depth1").value);
+                var wd = parseInt(document.getElementById("depth2").value);
+                ai_depth['g'] = gd;
+                ai_depth['w'] = wd;
+
+                awale_AI.restart();
+                for (var i = 1; i <= 6; i++){
+                    set_score("w"+i.toString(),3);
+                    set_score("g"+i.toString(),3);
+                }
+                set_score("w7",0);
+                set_score("g7",0);
+                set_team('g');
+                ai_play();
+            }
+        </script>
+
+        <div>
+            <svg width="1000" height="200">
+                <script type="text/JavaScript">
+                    <![CDATA[
+                        function onClick(event){
+                            var id = event.target.getAttributeNS(null,"id");
+                            if (id.length == 3)
+                                id = id[1].toString() + id[2].toString();
+                            move(id);
+                        }
+                    ]]>
+                </script>
+            
+                <circle onclick="onClick(event)" id="g6" cx="250" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg6" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="250" y="50">3</text>
+                <circle onclick="onClick(event)" id="g5" cx="350" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg5" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="350" y="50">3</text>
+                <circle onclick="onClick(event)" id="g4" cx="450" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg4" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="450" y="50">3</text>
+                <circle onclick="onClick(event)" id="g3" cx="550" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg3" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="550" y="50">3</text>
+                <circle onclick="onClick(event)" id="g2" cx="650" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg2" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="650" y="50">3</text>
+                <circle onclick="onClick(event)" id="g1" cx="750" cy="50" r="25" stroke="black" stroke-width="1" fill="grey" />
+                <text onclick="onClick(event)" id="tg1" fill="white" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="750" y="50">3</text>
+                <circle id="g7" cx="100" cy="100" r="75" stroke="black" stroke-width="3" fill="grey" />
+                <text id="tg7" fill="white" text-anchor="middle" dy="15" font-size="40" font-family="Verdana" x="100" y="100">0</text>
+            
+                <circle id="w7" cx="900" cy="100" r="75" stroke="black" stroke-width="3" fill="white" />
+                <text id="tw7" fill="black" text-anchor="middle" dy="15" font-size="40" font-family="Verdana" x="900" y="100">0</text>
+                <circle onclick="onClick(event)" id="w1" cx="250" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw1" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="250" y="150">3</text>
+                <circle onclick="onClick(event)" id="w2" cx="350" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw2" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="350" y="150">3</text>
+                <circle onclick="onClick(event)" id="w3" cx="450" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw3" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="450" y="150">3</text>
+                <circle onclick="onClick(event)" id="w4" cx="550" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw4" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="550" y="150">3</text>
+                <circle onclick="onClick(event)" id="w5" cx="650" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw5" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="650" y="150">3</text>
+                <circle onclick="onClick(event)" id="w6" cx="750" cy="150" r="25" stroke="black" stroke-width="1" fill="white" />
+                <text onclick="onClick(event)" id="tw6" fill="black" text-anchor="middle" dy="12" font-size="30" font-family="Verdana" x="750" y="150">3</text>
+            
+                <rect id="team" x="495" y="95" fill="grey" stroke="black" stroke-width="1" width="10" height="10" />
+            </svg><br/><br/><br/><br/><br/>
+
+            <form style="text-align:center;">
+                <input id="depth1" type="number" value=0 required />
+                <input id="depth2" type="number" value=0 required />
+                <button onclick="new_game();return false;">New game!</button>
+            </form>
+        </div>
     </div>
 
 </body>
