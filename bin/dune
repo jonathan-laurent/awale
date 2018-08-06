@@ -7,5 +7,5 @@
 (executable
     (name awale_js)
     (modules awale_js)
-    (libraries core_kernel awale)
-    (preprocess (pps ppx_jane)))
+    (libraries core_kernel js_of_ocaml awale)
+    (preprocess (pps ppx_jane js_of_ocaml-ppx)))
