@@ -1,0 +1,11 @@
+(executable
+    (name awale)
+    (modules awale)
+    (libraries core_kernel awale)
+    (preprocess (pps ppx_jane)))
+
+(executable
+    (name awale_js)
+    (modules awale_js)
+    (libraries core_kernel awale)
+    (preprocess (pps ppx_jane)))

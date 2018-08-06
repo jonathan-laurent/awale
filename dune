@@ -1,4 +1,5 @@
-(executable
+(library
     (name awale)
+    (wrapped false)
     (libraries core_kernel)
     (preprocess (pps ppx_jane)))

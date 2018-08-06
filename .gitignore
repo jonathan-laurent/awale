@@ -2,3 +2,5 @@ _build
 archive
 .merlin
 .DS_Store
+awale.exe
+awale.js
